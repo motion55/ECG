@@ -10,6 +10,9 @@ int ledState = LOW;
 
 uint8_t Head, Tail;
 
+volatile int AnalogValue;
+volatile boolean AnalogReady; 
+
 ISR(TIMER1_COMPA_vect)
 {
   if (bit_is_clear(ADCSRA, ADSC))
@@ -18,7 +21,10 @@ ISR(TIMER1_COMPA_vect)
     uint8_t low  = ADCL;
     uint8_t high = ADCH;
     
-    // start the next conversion
+    AnalogValue = (high<<8)+low;
+    AnalogReady = true;
+    
+    //start the next conversion
     _SFR_BYTE(ADCSRA) |= _BV(ADSC);
     
     Head++;  
@@ -42,7 +48,7 @@ void InitADCTimer()
 {
   //Perform dummy read to initialize 
   //the analog multiplexer.  
-  analogRead(analogPin);
+  AnalogValue = analogRead(analogPin);
   
   uint8_t oldSREG = SREG; //backup status reg
   cli();  //disable interrupts
@@ -56,12 +62,15 @@ void InitADCTimer()
   _SFR_BYTE(TIMSK1) |= _BV(OCIE1A); //enable interrupt on compare A match.
   
   SREG = oldSREG; //restore status reg
+
+  AnalogReady = false; 
 }
 
 void setup() 
 {
   // put your setup code here, to run once:
   pinMode(ledPin,OUTPUT);
+  Serial.begin(57600);
   
   InitADCTimer();
 }
@@ -71,9 +80,9 @@ unsigned long int oldmillis = 0;
 void loop() 
 {
   // put your main code here, to run repeatedly:
-  unsigned long int newmillis = millis();
-  if (oldmillis!=newmillis)
+  if (AnalogReady)
   {
-    oldmillis = newmillis;
+    AnalogReady = false;
+    Serial.println(AnalogValue);
   }
 }
