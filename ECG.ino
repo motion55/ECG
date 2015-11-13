@@ -1,13 +1,7 @@
 
-#ifndef cbi
-#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
-#endif
-#ifndef sbi
-#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
-#endif
-
+#define TIMER_FREQ  500
 #define TIMER_CLK (F_CPU/64)
-#define TIMER_VAL ((TIMER_CLK/500)-1)
+#define TIMER_VAL ((TIMER_CLK/TIMER_FREQ)-1)
 
 #define ledPin    13
 #define analogPin A0
@@ -20,25 +14,26 @@ ISR(TIMER1_COMPA_vect)
 {
   if (bit_is_clear(ADCSRA, ADSC))
   {
+    //read ADC conversion results
     uint8_t low  = ADCL;
     uint8_t high = ADCH;
     
     // start the next conversion
-    sbi(ADCSRA, ADSC);
-  }
-  
-  Tail++;
-//  if (Tail==0)
-  {
-    if (ledState==LOW)
+    _SFR_BYTE(ADCSRA) |= _BV(ADSC);
+    
+    Head++;  
+    if (Head==0)
     {
-      ledState = HIGH;
-      digitalWrite(ledPin,HIGH);
-    }
-    else
-    {
-      ledState = LOW;
-      digitalWrite(ledPin,LOW);
+      if (ledState==LOW)
+      {
+        ledState = HIGH;
+        digitalWrite(ledPin,HIGH);
+      }
+      else
+      {
+        ledState = LOW;
+        digitalWrite(ledPin,LOW);
+      }
     }
   }
 }
@@ -49,23 +44,18 @@ void InitADCTimer()
   //the analog multiplexer.  
   analogRead(analogPin);
   
-  uint8_t oldSREG = SREG;
-  cli();
+  uint8_t oldSREG = SREG; //backup status reg
+  cli();  //disable interrupts
   
-  sbi(TCCR1B, CS10);
-  sbi(TCCR1B, CS11);  //F_CPU/64 prescale
-  cbi(TCCR1B, CS12);
+  TCCR1A = 0;
+  TCCR1B = (1<<WGM12)+(1<<CS11)+(1<<CS10);  //F_CPU/64 prescale & CTC mode4
   
-  cbi(TCCR1A, WGM10);
-  cbi(TCCR1A, WGM11);
-  sbi(TCCR1A, WGM12); //CTC Mode
-  
-  OCR1AH = TIMER_VAL/256;
+  OCR1AH = TIMER_VAL/256; //500Hz timer rate.
   OCR1AL = TIMER_VAL%256;
   
-  sbi(TIMSK1, OCIE1A);
+  _SFR_BYTE(TIMSK1) |= _BV(OCIE1A); //enable interrupt on compare A match.
   
-  SREG = oldSREG;
+  SREG = oldSREG; //restore status reg
 }
 
 void setup() 
