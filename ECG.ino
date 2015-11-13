@@ -75,14 +75,16 @@ void setup()
   InitADCTimer();
 }
 
-unsigned long int oldmillis = 0;
-
 void loop() 
 {
   // put your main code here, to run repeatedly:
   if (AnalogReady)
   {
     AnalogReady = false;
-    Serial.println(AnalogValue);
+    uint8_t oldSREG = SREG; //backup status reg
+    cli();  //disable interrupts
+    int Value = AnalogValue;
+    SREG = oldSREG; //restore status reg
+    Serial.println(Value);
   }
 }
