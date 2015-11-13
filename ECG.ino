@@ -1,6 +1,6 @@
 
 #define TIMER_FREQ  500
-#define TIMER_CLK (F_CPU/64)
+#define TIMER_CLK (F_CPU/128)
 #define TIMER_VAL ((TIMER_CLK/TIMER_FREQ)-1)
 
 #define ledPin    13
@@ -13,7 +13,7 @@ uint8_t Head, Tail;
 volatile int AnalogValue;
 volatile boolean AnalogReady; 
 
-ISR(TIMER1_COMPA_vect)
+ISR(TIMER2_COMPA_vect)
 {
   if (bit_is_clear(ADCSRA, ADSC))
   {
@@ -49,21 +49,19 @@ void InitADCTimer()
   //Perform dummy read to initialize 
   //the analog multiplexer.  
   AnalogValue = analogRead(analogPin);
+  AnalogReady = false; 
   
   uint8_t oldSREG = SREG; //backup status reg
-  cli();  //disable interrupts
+  noInterrupts();  //disable interrupts
   
-  TCCR1A = 0;
-  TCCR1B = (1<<WGM12)+(1<<CS11)+(1<<CS10);  //F_CPU/64 prescale & CTC mode4
+  TCCR2A = (1<<WGM21); //CTC mode2
+  TCCR2B = (1<<CS22)+(1<<CS20);  //F_CPU/128 prescale
   
-  OCR1AH = TIMER_VAL/256; //500Hz timer rate.
-  OCR1AL = TIMER_VAL%256;
+  OCR2A = TIMER_VAL; //500Hz timer rate.
   
-  _SFR_BYTE(TIMSK1) |= _BV(OCIE1A); //enable interrupt on compare A match.
+  _SFR_BYTE(TIMSK2) |= _BV(OCIE2A); //enable interrupt on compare A match.
   
   SREG = oldSREG; //restore status reg
-
-  AnalogReady = false; 
 }
 
 void setup() 
@@ -82,7 +80,7 @@ void loop()
   {
     AnalogReady = false;
     uint8_t oldSREG = SREG; //backup status reg
-    cli();  //disable interrupts
+    noInterrupts();  //disable interrupts
     int Value = AnalogValue;
     SREG = oldSREG; //restore status reg
     Serial.println(Value);
