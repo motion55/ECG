@@ -49,6 +49,7 @@ void InitADCTimer()
   //Perform dummy read to initialize 
   //the analog multiplexer.  
   AnalogValue = analogRead(analogPin);
+  AnalogReady = false; 
   
   uint8_t oldSREG = SREG; //backup status reg
   cli();  //disable interrupts
@@ -62,8 +63,6 @@ void InitADCTimer()
   _SFR_BYTE(TIMSK1) |= _BV(OCIE1A); //enable interrupt on compare A match.
   
   SREG = oldSREG; //restore status reg
-
-  AnalogReady = false; 
 }
 
 void setup() 
