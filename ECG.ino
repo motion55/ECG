@@ -1,6 +1,6 @@
 
-#define TIMER_FREQ  500
-#define TIMER_CLK (F_CPU/128)
+#define TIMER_FREQ  1000
+#define TIMER_CLK (F_CPU/64)
 #define TIMER_VAL ((TIMER_CLK/TIMER_FREQ)-1)
 
 #define ledPin    13
@@ -10,8 +10,8 @@ int ledState = LOW;
 
 uint8_t Head, Tail;
 
-volatile int AnalogValue;
-volatile boolean AnalogReady; 
+volatile int AnalogValue,AnalogValue2;
+volatile boolean AnalogReady,AnalogReady2; 
 
 ISR(TIMER2_COMPA_vect)
 {
@@ -21,8 +21,17 @@ ISR(TIMER2_COMPA_vect)
     uint8_t low  = ADCL;
     uint8_t high = ADCH;
     
-    AnalogValue = (high<<8)+low;
-    AnalogReady = true;
+    if (AnalogReady2)
+    {
+      AnalogReady2 = false;
+      AnalogValue = AnalogValue2 + (high<<8)+low;
+      AnalogReady = true;
+    }
+    else
+    {
+      AnalogValue2 = (high<<8)+low;
+      AnalogReady2 = true;
+    }
     
     //start the next conversion
     _SFR_BYTE(ADCSRA) |= _BV(ADSC);
@@ -50,14 +59,15 @@ void InitADCTimer()
   //the analog multiplexer.  
   AnalogValue = analogRead(analogPin);
   AnalogReady = false; 
+  AnalogReady2 = false; 
   
   uint8_t oldSREG = SREG; //backup status reg
   noInterrupts();  //disable interrupts
   
   TCCR2A = (1<<WGM21); //CTC mode2
-  TCCR2B = (1<<CS22)+(1<<CS20);  //F_CPU/128 prescale
+  TCCR2B = (1<<CS22);  //F_CPU/64 prescale
   
-  OCR2A = TIMER_VAL; //500Hz timer rate.
+  OCR2A = TIMER_VAL; //1000Hz timer rate.
   
   _SFR_BYTE(TIMSK2) |= _BV(OCIE2A); //enable interrupt on compare A match.
   
